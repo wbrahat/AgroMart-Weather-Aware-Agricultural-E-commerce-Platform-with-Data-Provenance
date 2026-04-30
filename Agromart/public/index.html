@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgroMart — Supply Chain Tracker</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="logo">
+    <div class="sidebar-logo-wrap" aria-hidden="true">
+      <img src="logo1.png" alt="AgroMart Logo" class="sidebar-logo" />
+    </div>
+    <span class="sidebar-brand-name">AgroMart</span>
+  </div>
+  <nav>
+    <a href="#dashboard"   class="nav-link active"><span class="icon"><i class="fas fa-chart-line"></i></span> Dashboard</a>
+    <a href="#orders"      class="nav-link"><span class="icon"><i class="fas fa-clipboard-list"></i></span> Orders</a>
+    <a href="#shipments"   class="nav-link"><span class="icon"><i class="fas fa-truck-fast"></i></span> Shipments</a>
+    <a href="#farmers"     class="nav-link"><span class="icon"><i class="fas fa-people-group"></i></span> Farmers</a>
+    <a href="#products"    class="nav-link"><span class="icon"><i class="fas fa-box-open"></i></span> Products</a>
+    <a href="#warehouses"  class="nav-link"><span class="icon"><i class="fas fa-warehouse"></i></span> Warehouses</a>
+    <a href="#vehicles"    class="nav-link"><span class="icon"><i class="fas fa-truck-moving"></i></span> Vehicles</a>
+    <a href="#monitoring"  class="nav-link"><span class="icon"><i class="fas fa-temperature-half"></i></span> Heat Monitor</a>
+    <a href="#weather"     class="nav-link"><span class="icon"><i class="fas fa-cloud-bolt"></i></span> Weather Events</a>
+    <a href="#spoilage"    class="nav-link"><span class="icon"><i class="fas fa-triangle-exclamation"></i></span> Spoilage</a>
+    <a href="#provenance"  class="nav-link"><span class="icon"><i class="fas fa-route"></i></span> Provenance</a>
+    <a href="#price-audit" class="nav-link"><span class="icon"><i class="fas fa-file-invoice-dollar"></i></span> Price Audit</a>
+  </nav>
+  <div class="db-status" id="db-status">
+    <div class="dot"></div>
+    <span id="db-status-text">Connecting…</span>
+  </div>
+  <button class="btn btn-secondary sidebar-logout-btn" onclick="logout()">
+    <i class="fas fa-right-from-bracket"></i> Log out
+  </button>
+</aside>
+
+<main id="main">
+
+<!-- DASHBOARD -->
+<section id="page-dashboard" class="page">
+  <div class="page-header">
+    <div><h1>Dashboard</h1><p>AgroMart supply chain at a glance</p></div>
+    <button class="btn btn-secondary" onclick="loadDashboard()"><i class="fas fa-rotate-right"></i> Refresh</button>
+  </div>
+  <div class="kpi-grid" id="kpi-grid"><div class="loader"><div class="spinner"></div></div></div>
+</section>
+
+<!-- ORDERS (first step: order food from farmer) -->
+<section id="page-orders" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Purchase Orders</h1><p>Step 1 — Order food from farmers. Then create a shipment for delivery.</p></div>
+    <button class="btn btn-primary" onclick="openModal('order')">+ New Order</button>
+  </div>
+  <!-- Active orders accordion -->
+  <div id="order-list"></div>
+</section>
+
+<!-- SHIPMENTS -->
+<section id="page-shipments" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Shipments</h1><p>Step 2 — Track deliveries from farmer to destination</p></div>
+    <button class="btn btn-primary" onclick="openModal('shipment')">+ New Shipment</button>
+  </div>
+
+  <!-- PENDING SHIPMENTS panel — quick update -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <strong><i class="fas fa-clock"></i> Pending / In Transit</strong>
+      <small class="td-muted">Click a row to update delivery status</small>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th>Product</th><th>Farmer</th><th>Route</th><th>Qty</th>
+          <th>Status</th><th>Vehicle</th><th>Est. Arrival</th><th>Update</th>
+        </tr></thead>
+        <tbody id="active-shipment-tbody">
+          <tr><td colspan="8" class="td-muted" style="padding:16px;text-align:center">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ALL SHIPMENTS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="toolbar">
+        <strong>All Shipments</strong>
+        <input class="search-input" id="shipment-search" placeholder="Search…" oninput="filterTable('shipment-table',this.value)"/>
+        <select class="filter-select" id="shipment-status-filter" onchange="loadShipments()">
+          <option value="">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="IN_TRANSIT">In Transit</option>
+          <option value="IN_WAREHOUSE">In Warehouse</option>
+          <option value="DELAYED">Delayed</option>
+          <option value="DELIVERED">Delivered</option>
+          <option value="PARTIALLY_DELIVERED">Partially Delivered</option>
+          <option value="SPOILED">Spoiled</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="shipment-table">
+        <thead><tr>
+          <th>Product</th><th>Farmer</th><th>Route</th><th>Qty</th>
+          <th>Status</th><th>Vehicle</th><th>Started</th><th>Arrival</th><th>Cost</th>
+        </tr></thead>
+        <tbody id="shipment-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- FARMERS -->
+<section id="page-farmers" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Farmers</h1><p>Agricultural partners</p></div>
+    <button class="btn btn-primary" onclick="openModal('farmer')">+ Add Farmer</button>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <input class="search-input" id="farmer-search" placeholder="Search farmers…" oninput="filterTable('farmer-table',this.value)"/>
+    </div>
+    <div class="table-wrapper">
+      <table id="farmer-table">
+        <thead><tr><th>Name</th><th>Phone</th><th>District</th><th>Village</th><th>Land</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="farmer-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="page-products" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Products</h1><p>Catalog and prices</p></div>
+    <button class="btn btn-primary" onclick="openModal('product')">+ Add Product</button>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="toolbar">
+        <input class="search-input" id="product-search" placeholder="Search…" oninput="filterTable('product-table',this.value)"/>
+        <select class="filter-select" id="product-category-filter" onchange="loadProducts()">
+          <option value="">All Categories</option>
+          <option>Vegetable</option><option>Fruit</option><option>Fish</option>
+          <option>Meat</option><option>Dairy</option><option>Grain</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="product-table">
+        <thead><tr><th>Name</th><th>Category</th><th>Unit</th><th>Stock</th><th>Buy Price</th><th>Sell Price</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- WAREHOUSES -->
+<section id="page-warehouses" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Warehouses</h1><p>Storage capacity</p></div>
+    <button class="btn btn-primary" onclick="openModal('warehouse')">+ Add Warehouse</button>
+  </div>
+  <div class="wh-grid" id="wh-grid"></div>
+</section>
+
+<!-- VEHICLES -->
+<section id="page-vehicles" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Vehicles</h1><p>Fleet status — green = available, yellow = currently delivering</p></div>
+    <button class="btn btn-primary" onclick="openModal('vehicle')">+ Add Vehicle</button>
+  </div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table id="vehicle-table">
+        <thead><tr>
+          <th>Plate No.</th><th>Type</th><th>Capacity</th><th>Cooling</th>
+          <th><i class="fas fa-truck-moving"></i> Current Status</th><th>Currently Delivering</th><th>Last Service</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="vehicle-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+
+<!-- HEAT MONITOR / SENSOR LOGS -->
+<section id="page-monitoring" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Heat Monitor</h1><p>Cold-chain temperature & kW heat load logs — auto-calculated by DB trigger</p></div>
+    <button class="btn btn-primary" onclick="openModal('sensor')">+ Add Sensor Log</button>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="toolbar">
+        <strong>Temperature &amp; Heat Load Logs</strong>
+        <input class="search-input" id="monitoring-search" placeholder="Search…" oninput="filterTable('monitoring-table',this.value)"/>
+        <select class="filter-select" id="monitoring-filter" onchange="loadMonitoring()">
+          <option value="">All Logs</option>
+          <option value="overloaded">Heat Overloaded</option>
+          <option value="breach">Temp Breach</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="monitoring-table">
+        <thead><tr>
+          <th>Product / Farmer</th>
+          <th>Shipment</th>
+          <th>Ambient</th>
+          <th>Internal</th>
+          <th>Ideal Max / ΔT</th>
+          <th>Humidity</th>
+          <th>Heat Load (kW)</th>
+          <th>Cooling Cap (kW) / Ratio</th>
+          <th>Overload?</th>
+          <th>Temp Breach?</th>
+          <th>Risk Level</th>
+          <th>Recorded</th>
+        </tr></thead>
+        <tbody id="monitoring-tbody">
+          <tr><td colspan="12" class="td-muted" style="padding:16px;text-align:center">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- WEATHER EVENTS -->
+<section id="page-weather" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Weather Events</h1><p>Disruptions affecting supply</p></div>
+    <button class="btn btn-primary" onclick="openModal('weather')">+ Log Event</button>
+  </div>
+
+  <!-- ── LIVE CONDITIONS card (from weather_cache / Open-Meteo) ── -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="fas fa-satellite-dish" style="color:var(--blue)"></i>
+        <strong>Live Conditions</strong>
+        <span id="weather-cache-stale" style="display:none" class="badge badge-yellow">Stale</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="weather-cache-updated" class="td-muted" style="font-size:11px"></span>
+        <button class="btn btn-secondary btn-sm" id="weather-refresh-btn" onclick="refreshWeatherCache()">
+          <i class="fas fa-rotate-right"></i> Fetch Live
+        </button>
+      </div>
+    </div>
+    <div id="weather-cache-grid" style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">
+      <div class="loader"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- ── WEATHER EVENTS table ── -->
+  <div class="card">
+    <div class="table-wrapper">
+      <table id="weather-table">
+        <thead><tr><th>Type</th><th>District</th><th>Severity</th><th>Delay Impact</th><th>Started</th><th>Ended</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody id="weather-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- SPOILAGE -->
+<section id="page-spoilage" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Spoilage Records</h1><p>Food loss tracking</p></div>
+    <button class="btn btn-primary" onclick="openModal('spoilage')">+ Report Spoilage</button>
+  </div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table id="spoilage-table">
+        <thead><tr><th>Product</th><th>Farmer</th><th>Sent</th><th>Received</th><th>Spoiled</th><th>%</th><th>Cause</th><th>Loss</th><th>Detected</th></tr></thead>
+        <tbody id="spoilage-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PROVENANCE -->
+<section id="page-provenance" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Provenance Feed</h1><p>Every action across all tables — who did what, when</p></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Filter by table -->
+      <select class="filter-select" id="prov-table-filter" onchange="loadProvenance()">
+        <option value="">All Tables</option>
+        <option value="Farmer">Farmer</option>
+        <option value="Product">Product</option>
+        <option value="Vehicle">Vehicle</option>
+        <option value="Warehouse">Warehouse</option>
+        <option value="Order">Order</option>
+        <option value="Shipment">Shipment</option>
+        <option value="Weather">Weather</option>
+        <option value="Heat Monitor">Heat Monitor</option>
+        <option value="Sensor">Sensor</option>
+        <option value="Spoilage">Spoilage</option>
+        <option value="Price">Price</option>
+      </select>
+      <!-- Filter by severity -->
+      <select class="filter-select" id="prov-severity-filter" onchange="loadProvenance()">
+        <option value="">All Severities</option>
+        <option value="INFO">INFO</option>
+        <option value="WARNING">WARNING</option>
+        <option value="CRITICAL">CRITICAL</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="loadProvenance()">
+        <i class="fas fa-rotate-right"></i>
+      </button>
+    </div>
+  </div>
+  <div class="event-feed" id="prov-feed"></div>
+</section>
+
+<!-- PRICE AUDIT -->
+<section id="page-price-audit" class="page" style="display:none">
+  <div class="page-header">
+    <div><h1>Price Audit</h1><p>Price change history &amp; delivery profit/loss records</p></div>
+  </div>
+  <div class="card">
+    <div style="padding:10px 16px;border-bottom:1px solid var(--gray-100);display:flex;gap:16px;font-size:12px;color:var(--gray-500)">
+      <span style="background:#f0fdf4;padding:2px 8px;border-radius:4px;color:var(--green)">Green rows = Delivery profit/loss records</span>
+      <span>White rows = Price change events (weather / spoilage / manual)</span>
+    </div>
+    <div class="table-wrapper">
+      <table id="audit-table">
+        <thead><tr>
+          <th>Product</th>
+          <th>Old Price</th>
+          <th>New Price / Delivery</th>
+          <th>Change / Revenue</th>
+          <th>Cost</th>
+          <th>Profit / Change%</th>
+          <th>Status / Type</th>
+          <th>Context</th>
+          <th>Source</th>
+          <th>When</th>
+        </tr></thead>
+        <tbody id="audit-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ═══════════════ MODALS ═══════════════════════════════════ -->
+
+<!-- ORDER MODAL -->
+<div class="modal-overlay" id="modal-order">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>New Purchase Order</h2>
+      <button class="modal-close" onclick="closeModal('order')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:13px;margin-bottom:14px;">
+        📋 Create the order first, then add food items (product + farmer). Then create a shipment for delivery.
+      </p>
+      <form class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Order Date *</label>
+          <input class="form-control" id="order-date" type="datetime-local"/>
+          <small style="color:var(--gray-500);font-size:11px">Can be a past date e.g. April 20</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Initial Status</label>
+          <select class="form-control" id="order-status-new">
+            <!-- filled dynamically -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" id="order-notes" placeholder="Optional notes"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('order')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOrder()">Create Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER STATUS MODAL -->
+<div class="modal-overlay" id="modal-order-status">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-header">
+      <h2>Update Order Status</h2>
+      <button class="modal-close" onclick="closeModal('order-status')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="order-status-id"/>
+      <select class="form-control" id="order-status-value">
+        <!-- filled dynamically by fillStatusSelect() -->
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('order-status')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOrderStatus()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER ITEM MODAL (add food to order) -->
+<div class="modal-overlay" id="modal-order-item">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>Add Food Item to Order</h2>
+      <button class="modal-close" onclick="closeModal('order-item')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid">
+        <input type="hidden" id="order-item-order-id"/>
+        <div class="form-group">
+          <label class="form-label">Product (what food?) *</label>
+          <select class="form-control" id="order-item-product" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Farmer (from whom?) *</label>
+          <select class="form-control" id="order-item-farmer" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pickup District *</label>
+          <select class="form-control" id="order-item-src-district" required></select>
+          <small style="color:var(--gray-500);font-size:11px">Auto-filled from farmer's district</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity (kg) *</label>
+          <input class="form-control" id="order-item-qty" type="number" min="0" step="0.01"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agreed Price Per Unit (৳) *</label>
+          <input class="form-control" id="order-item-price" type="number" min="0" step="0.01"/>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('order-item')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOrderItem()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- STANDALONE SHIPMENT MODAL -->
+<div class="modal-overlay" id="modal-shipment">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2>New Shipment</h2>
+      <button class="modal-close" onclick="closeModal('shipment')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid form-grid-2">
+        <div class="form-group col-span-2">
+          <label class="form-label">Product *</label>
+          <select class="form-control" id="shipment-product" required></select>
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Farmer *</label>
+          <select class="form-control" id="shipment-farmer" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Source District *</label>
+          <select class="form-control" id="shipment-src-district" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Destination District *</label>
+          <select class="form-control" id="shipment-dest-district" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vehicle (available only)</label>
+          <select class="form-control" id="shipment-vehicle"><option value="">None</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Warehouse</label>
+          <select class="form-control" id="shipment-warehouse"><option value="">None</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity (kg) *</label>
+          <input class="form-control" id="shipment-qty" type="number" min="0" step="0.01"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Transport Cost (৳)</label>
+          <input class="form-control" id="shipment-cost" type="number" min="0" value="0"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Time *</label>
+          <input class="form-control" id="shipment-start" type="datetime-local"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estimated Arrival</label>
+          <input class="form-control" id="shipment-arrival" type="datetime-local"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-control" id="shipment-status-new">
+            <!-- filled dynamically -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Actual Arrival (if delivered)</label>
+          <input class="form-control" id="shipment-actual-arrival-new" type="datetime-local"/>
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">Notes</label>
+          <input class="form-control" id="shipment-notes" placeholder="Optional"/>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('shipment')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShipment()">Create Shipment</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHIPMENT STATUS UPDATE MODAL -->
+<div class="modal-overlay" id="modal-shipment-status">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h2>Update Delivery Status</h2>
+      <button class="modal-close" onclick="closeModal('shipment-status')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="shipment-status-info" style="background:var(--gray-50);border-radius:6px;padding:10px;font-size:13px;margin-bottom:14px;"></div>
+      <input type="hidden" id="shipment-status-id"/>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">New Status</label>
+          <select class="form-control" id="shipment-status-value">
+            <!-- filled dynamically by fillStatusSelect() -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Arrival Date & Time</label>
+          <input class="form-control" id="shipment-actual-arrival" type="datetime-local"/>
+          <small style="color:var(--gray-500);font-size:11px">Can be a past date. Stock updates automatically on delivery.</small>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('shipment-status')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShipmentStatus()">✓ Confirm Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- FARMER MODAL -->
+<div class="modal-overlay" id="modal-farmer">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="farmer-modal-title">Add Farmer</h2>
+      <button class="modal-close" onclick="closeModal('farmer')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid form-grid-2">
+        <input type="hidden" id="farmer-id"/>
+        <div class="form-group col-span-2"><label class="form-label">Name *</label><input class="form-control" id="farmer-name" required/></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-control" id="farmer-phone" placeholder="+880…"/></div>
+        <div class="form-group"><label class="form-label">District *</label><select class="form-control" id="farmer-district" required></select></div>
+        <div class="form-group"><label class="form-label">Village</label><input class="form-control" id="farmer-village"/></div>
+        <div class="form-group"><label class="form-label">Land Size (Acres)</label><input class="form-control" id="farmer-land" type="number" step="0.01" min="0"/></div>
+        <div class="form-group col-span-2"><label class="form-checkbox"><input type="checkbox" id="farmer-active" checked/> Active</label></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('farmer')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveFarmer()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="modal-product">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 id="product-modal-title">Add Product</h2>
+      <button class="modal-close" onclick="closeModal('product')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid form-grid-2">
+        <input type="hidden" id="product-id"/>
+        <div class="form-group col-span-2"><label class="form-label">Name *</label><input class="form-control" id="product-name" required/></div>
+        <div class="form-group"><label class="form-label">Category *</label>
+          <select class="form-control" id="product-category">
+            <option>Vegetable</option><option>Fruit</option><option>Fish</option><option>Meat</option><option>Dairy</option><option>Grain</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Unit</label>
+          <select class="form-control" id="product-unit"><option value="KG">KG</option><option value="LITRE">LITRE</option><option value="PCS">PCS</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Purchase Price (৳) *</label><input class="form-control" id="product-purchase-price" type="number" step="0.01" min="0" required/></div>
+        <div class="form-group"><label class="form-label">Current Price (৳) *</label><input class="form-control" id="product-current-price" type="number" step="0.01" min="0" required/></div>
+        <div class="form-group"><label class="form-label">Stock Quantity</label><input class="form-control" id="product-stock" type="number" min="0" value="0"/></div>
+        <div class="form-group"><label class="form-label">Max Shelf Hours</label><input class="form-control" id="product-shelf" type="number" min="0" placeholder="e.g. 72"/></div>
+        <div class="form-group"><label class="form-label">Specific Heat</label><input class="form-control" id="product-specific-heat" type="number" step="0.001" min="0" placeholder="e.g. 0.95"/></div>
+        <div class="form-group"><label class="form-label">Ideal Temp Min (°C)</label><input class="form-control" id="product-temp-min" type="number" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Ideal Temp Max (°C)</label><input class="form-control" id="product-temp-max" type="number" step="0.1"/></div>
+        <div class="form-group"><label class="form-checkbox"><input type="checkbox" id="product-seasonal"/> Seasonal</label></div>
+        <div class="form-group"><label class="form-checkbox"><input type="checkbox" id="product-active" checked/> Active</label></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('product')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- WAREHOUSE MODAL -->
+<div class="modal-overlay" id="modal-warehouse">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 id="warehouse-modal-title">Add Warehouse</h2>
+      <button class="modal-close" onclick="closeModal('warehouse')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid form-grid-2">
+        <input type="hidden" id="warehouse-id"/>
+        <div class="form-group col-span-2"><label class="form-label">Name *</label><input class="form-control" id="warehouse-name" required/></div>
+        <div class="form-group col-span-2"><label class="form-label">District *</label><select class="form-control" id="warehouse-district" required></select></div>
+        <div class="form-group"><label class="form-label">Capacity (kg) *</label><input class="form-control" id="warehouse-capacity" type="number" min="0" required/></div>
+        <div class="form-group"><label class="form-label">Rent/Day (৳) *</label><input class="form-control" id="warehouse-rent" type="number" min="0" required/></div>
+        <div class="form-group"><label class="form-label">Temp Min (°C)</label><input class="form-control" id="warehouse-temp-min" type="number" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Temp Max (°C)</label><input class="form-control" id="warehouse-temp-max" type="number" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Manager Name</label><input class="form-control" id="warehouse-manager-name"/></div>
+        <div class="form-group"><label class="form-label">Manager Phone</label><input class="form-control" id="warehouse-manager-phone"/></div>
+        <div class="form-group col-span-2"><label class="form-checkbox"><input type="checkbox" id="warehouse-active" checked/> Active</label></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('warehouse')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWarehouse()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- VEHICLE MODAL -->
+<div class="modal-overlay" id="modal-vehicle">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 id="vehicle-modal-title">Add Vehicle</h2>
+      <button class="modal-close" onclick="closeModal('vehicle')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid form-grid-2">
+        <input type="hidden" id="vehicle-id"/>
+        <div class="form-group"><label class="form-label">Plate Number *</label><input class="form-control" id="vehicle-plate" required placeholder="e.g. DHA-1234"/></div>
+        <div class="form-group"><label class="form-label">Vehicle Type</label><input class="form-control" id="vehicle-type" placeholder="e.g. Truck"/></div>
+        <div class="form-group"><label class="form-label">Cooling Unit</label><input class="form-control" id="vehicle-cooling" placeholder="e.g. Reefer"/></div>
+        <div class="form-group"><label class="form-label">Capacity (kg) *</label><input class="form-control" id="vehicle-capacity" type="number" min="0" required/></div>
+        <div class="form-group"><label class="form-label">Min Temp (°C)</label><input class="form-control" id="vehicle-min-temp" type="number" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Cooling Capacity (BTU)</label><input class="form-control" id="vehicle-cooling-capacity-btu" type="number" min="0" step="0.01" placeholder="e.g. 800"/></div>
+        <div class="form-group"><label class="form-label">Last Service Date</label><input class="form-control" id="vehicle-service-date" type="date"/></div>
+        <div class="form-group col-span-2"><label class="form-checkbox"><input type="checkbox" id="vehicle-operational" checked/> Operational</label></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('vehicle')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveVehicle()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- WEATHER MODAL -->
+<div class="modal-overlay" id="modal-weather">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="weather-modal-title">Log Weather Event</h2>
+      <button class="modal-close" onclick="closeModal('weather')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid form-grid-2">
+        <input type="hidden" id="weather-id"/>
+        <div class="form-group col-span-2"><label class="form-label">District *</label><select class="form-control" id="weather-district" required></select></div>
+        <div class="form-group"><label class="form-label">Event Type</label>
+          <select class="form-control" id="weather-type">
+            <option>Flood</option><option>Drought</option><option>Storm</option>
+            <option>Heatwave</option><option>Cold_Wave</option><option>Heavy_Rain</option><option>Cyclone</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Severity</label>
+          <select class="form-control" id="weather-severity">
+            <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Delay Impact (hours)</label><input class="form-control" id="weather-delay" type="number" min="0" value="4"/></div>
+        <div class="form-group"><label class="form-label">Started At *</label><input class="form-control" id="weather-started" type="datetime-local" required/></div>
+        <div class="form-group col-span-2"><label class="form-label">Ended At (leave blank if still active)</label><input class="form-control" id="weather-ended" type="datetime-local"/></div>
+        <div class="form-group col-span-2"><label class="form-label">Description</label><input class="form-control" id="weather-description" placeholder="Optional details"/></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('weather')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWeather()">Save Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- SPOILAGE MODAL -->
+<div class="modal-overlay" id="modal-spoilage">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Report Spoilage</h2>
+      <button class="modal-close" onclick="closeModal('spoilage')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid">
+        <div class="form-group"><label class="form-label">Shipment *</label><select class="form-control" id="spoilage-shipment" required></select></div>
+        <div class="form-grid form-grid-2" style="gap:12px">
+          <div class="form-group"><label class="form-label">Qty Sent (kg) *</label><input class="form-control" id="spoilage-sent" type="number" min="0" required/></div>
+          <div class="form-group"><label class="form-label">Qty Received *</label><input class="form-control" id="spoilage-received" type="number" min="0" required/></div>
+          <div class="form-group"><label class="form-label">Qty Spoiled *</label><input class="form-control" id="spoilage-spoiled" type="number" min="0" required/></div>
+          <div class="form-group"><label class="form-label">Reason</label><input class="form-control" id="spoilage-reason" placeholder="Optional"/></div>
+        </div>
+        <div class="form-group" style="display:flex;gap:20px">
+          <label class="form-checkbox"><input type="checkbox" id="spoilage-heat"/> Heat overload</label>
+          <label class="form-checkbox"><input type="checkbox" id="spoilage-delay"/> Delay</label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('spoilage')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSpoilage()">Report</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- LINK SHIPMENT TO ORDER MODAL -->
+<div class="modal-overlay" id="modal-link-shipment">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2>Link Shipment to Order</h2>
+      <button class="modal-close" onclick="closeModal('link-shipment')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:13px;margin-bottom:14px;">
+        Select the shipment that carries the food you ordered. The product, farmer, and location are taken from the shipment automatically.
+      </p>
+      <input type="hidden" id="link-order-id"/>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Shipment (Product | Farmer | Route | Status) *</label>
+          <select class="form-control" id="link-shipment-id" required></select>
+        </div>
+        <div class="form-grid form-grid-2" style="gap:12px">
+          <div class="form-group">
+            <label class="form-label">Quantity (kg) *</label>
+            <input class="form-control" id="link-qty" type="number" min="0" step="0.01"/>
+            <small style="color:var(--gray-500);font-size:11px">Auto-filled from shipment quantity</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Agreed Price Per Unit (৳) *</label>
+            <input class="form-control" id="link-price" type="number" min="0" step="0.01"/>
+            <small style="color:var(--gray-500);font-size:11px">Auto-filled from product price</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('link-shipment')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLinkShipment()">Link to Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- SENSOR LOG MODAL -->
+<div class="modal-overlay" id="modal-sensor">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add Sensor Log</h2>
+      <button class="modal-close" onclick="closeModal('sensor')">×</button>
+    </div>
+    <div class="modal-body">
+      <form class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Shipment *</label>
+          <select class="form-control" id="sensor-shipment" required></select>
+        </div>
+
+        <!-- Weather cache hint — shown after shipment selected -->
+        <div id="sensor-weather-hint" style="
+          display:none;
+          background:#eff6ff;
+          border:1px solid #bfdbfe;
+          border-radius:6px;
+          padding:8px 12px;
+          font-size:12px;
+          color:#1d4ed8;
+          margin-bottom:4px;
+        "></div>
+
+        <div class="form-grid form-grid-2" style="gap:12px">
+          <div class="form-group">
+            <label class="form-label">
+              Ambient Temp (°C) *
+              <span style="font-size:10px;color:var(--gray-400);font-weight:400"> — auto from weather</span>
+            </label>
+            <input class="form-control" id="sensor-ambient-temp" type="number" step="0.1" required
+              placeholder="e.g. 32.5"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Internal Temp (°C) *</label>
+            <input class="form-control" id="sensor-internal-temp" type="number" step="0.1" required
+              placeholder="inside vehicle"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">
+              Humidity (%)
+              <span style="font-size:10px;color:var(--gray-400);font-weight:400"> — auto from weather</span>
+            </label>
+            <input class="form-control" id="sensor-humidity" type="number" min="0" max="100" step="0.1"
+              placeholder="auto-filled"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">
+              GPS Latitude
+              <span style="font-size:10px;color:var(--gray-400);font-weight:400"> — auto from district</span>
+            </label>
+            <input class="form-control" id="sensor-gps-lat" type="number" step="0.000001"
+              placeholder="auto-filled"/>
+          </div>
+          <div class="form-group col-span-2">
+            <label class="form-label">
+              GPS Longitude
+              <span style="font-size:10px;color:var(--gray-400);font-weight:400"> — auto from district</span>
+            </label>
+            <input class="form-control" id="sensor-gps-lng" type="number" step="0.000001"
+              placeholder="auto-filled"/>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('sensor')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSensorLog()">Save Log</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/app.js"></script>
+</body>
+</html>

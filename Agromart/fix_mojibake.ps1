@@ -1,0 +1,2 @@
+﻿@echo off
+$f="public/js/app.js"; $c=[IO.File]::ReadAllText($f,[Text.Encoding]::UTF8); $c=$c -Replace([char]0xE2+[char]0x80+[char]0xA2),"-"; $c=$c -Replace([char]0xE2+[char]0x80+[char]0x93),"-"; $c=$c -Replace([char]0xE2+[char]0x86+[char]0x92),"->"; [IO.File]::WriteAllText($f,$c,[Text.Encoding]::UTF8); Write-Output "Done"
